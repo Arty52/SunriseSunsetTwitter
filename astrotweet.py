@@ -30,7 +30,7 @@ def local_time(timezone, gmt_time):
     time = str(gmt_time)
     local_hour = int(time[-8:-6]) + int(time_zones['{}'.format(timezone)])
     if local_hour < 0:
-        local_hour = local_hour * -1
+        local_hour = local_hour + 24
     local_time = time[:-8] + str(local_hour) + time[-6:]
     return str(local_time)
 
