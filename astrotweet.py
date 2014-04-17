@@ -1,3 +1,6 @@
+# Art Grichine
+# ArtGrichine@gmail.com
+
 import ephem
 import twitter
 import sys
@@ -26,27 +29,19 @@ def local_time(timezone, gmt_time):
                  
     time = str(gmt_time)
     local_hour = int(time[-8:-6]) + int(time_zones['{}'.format(timezone)])
+    if local_hour < 0:
+        local_hour = local_hour * -1
     local_time = time[:-8] + str(local_hour) + time[-6:]
     return str(local_time)
 
 def main():
     city   = sys.argv[1] 
-    region = "US/" + sys.argv[2]                    
- #    state = sys.argv[2]                      
+    region = "US/" + sys.argv[2]                                       
     db = sqlite3.connect('us_only.sq3')
     c = db.cursor()
     
-    # sun = ephem.Sun()
-#     p = ephem.Sun('2014/4/5')
-#     x = ephem.Sun('2000/4/5')
-#     print(p.size)
-#     print(x.size)
-#     print(sun.name)
-# select latitude from sol_places where name = "Los Angeles";
-    # c.execute('select latitude from sol_places where name = "{}";'.format(city))
     c.execute('select latitude, longitude, time_zone from sol_places where name = "{}" and region = "{}";'.format(city, region))
-    # nyc = ephem.city('New York')
-    # print(nyc.lat)
+
     for i in c:
         latitude  = i[0]
         longitude = i[1]
@@ -61,7 +56,8 @@ def main():
     m.compute(ob)
     print(ob.next_rising(m))
     
-    ob_time = local_time(time_zone, (ob.next_rising(m)))
-    print('Observers time is: ' + ob_time)
+    print('Sun will rise: ' + local_time(time_zone, (ob.next_rising(m))))    
+    print('Sun will set: ' + local_time(time_zone, (ob.next_setting(m))))
+    
 if __name__ == '__main__':
     main()
