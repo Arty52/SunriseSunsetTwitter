@@ -6,7 +6,7 @@ from twitter import *
 import sys
 import sqlite3
 import time
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
 def moon_phase(percent_illuminated, moon_lum_yesterday):
     if percent_illuminated - moon_lum_yesterday >= 0:
@@ -28,8 +28,7 @@ def moon_phase(percent_illuminated, moon_lum_yesterday):
         return phase + 'crescent'
     else:
         return 'New Moon'
-        
-    # elif percent_illuminated >= 
+
 def local_time(timezone, gmt_time):
     time_zones = {'America/Chicago': -6,
                   'US/Mountain': -7,
@@ -61,62 +60,64 @@ def local_time(timezone, gmt_time):
 
 def main():
 
-    twitter = Twitter(auth=OAuth(
-                    '863439710-u1hYZ3s6NxpAgl8DXyM4sdModp9mKYL1W75IBGQz',     #Access Token
-                    'UEggOxNswZXnQCVnODMUMzKSbkLlpZ9f8jhgIbzkv5yxh',          #Access Token Secret
-                    'PF3WlkPo7Pygaohk1BMZKTt5D',                              #API Key
-                    'aEjd8gtlvPEu31it9MHF0rOPIrWKENiUzQeJ27qQNl2BJFyrHI'))    #API Secret
-    
-    city   = sys.argv[1] 
-    region = "US/" + sys.argv[2].upper()                                    
-    db = sqlite3.connect('us_only.sq3')
-    c = db.cursor()
-    
-    c.execute('select latitude, longitude, time_zone from sol_places where name = "{}" and region = "{}";'.format(city, region))
+    #sleep until 3am
+    current_time = str(datetime.now())
+    current_time = current_time[11:]
+    current_hour = 24 - (int(current_time[:2]) - 3)
+    print('sleeping for {} seconds which is {} hours'.format(current_hour*60*60, current_hour))
+    time.sleep(current_hour*60*60)                         
 
-    for i in c:
-        latitude   = i[0]
-        longitude  = i[1]
-        time_zone  = i[2]
-        print('Latitude: {}'.format(i[0]))
-        print('Longitude: {}'.format(i[1]))
+    while True:
+        twitter = Twitter(auth=OAuth(
+                        '863439710-u1hYZ3s6NxpAgl8DXyM4sdModp9mKYL1W75IBGQz',     #Access Token
+                        'UEggOxNswZXnQCVnODMUMzKSbkLlpZ9f8jhgIbzkv5yxh',          #Access Token Secret
+                        'PF3WlkPo7Pygaohk1BMZKTt5D',                              #API Key
+                        'aEjd8gtlvPEu31it9MHF0rOPIrWKENiUzQeJ27qQNl2BJFyrHI'))    #API Secret
     
-    #Sunrise/Set
-    ob = ephem.Observer()
-    ob.lat = str(latitude)
-    ob.lon = str(longitude)
-    ob.horizon = '-6'        #civil dusk/dawn is -6 degrees
-    m = ephem.Sun()
-    m.compute(ob)
-    print(ob.next_rising(m))
+        city   = sys.argv[1] 
+        region = "US/" + sys.argv[2].upper()                                    
+        db = sqlite3.connect('us_only.sq3')
+        c = db.cursor()
     
-    print('Sun will rise: ' + local_time(time_zone, (ob.next_rising(m))))    
-    print('Sun will set: '  + local_time(time_zone, (ob.next_setting(m))))
+        c.execute('select latitude, longitude, time_zone from sol_places where name = "{}" and region = "{}";'.format(city, region))
+
+        for i in c:
+            latitude   = i[0]
+            longitude  = i[1]
+            time_zone  = i[2]
     
-    #observer to compare for waxing/waning
-    ob2 = ephem.Observer()
-    ob2.lat = str(latitude)
-    ob2.lon = str(longitude)
-    yesterdays_date = str(date.today() - timedelta(1))      #yesterdays date
-    yesterdays_date = yesterdays_date[:4] + '/' + yesterdays_date[5:7] + '/' + yesterdays_date[8:]
-    ob2.date = yesterdays_date
-    ob2.horizon = '-6'      
-    moon_yesterday = ephem.Moon()
-    moon_yesterday.compute(ob2)
+        #Sunrise/Set
+        ob = ephem.Observer()
+        ob.lat = str(latitude)
+        ob.lon = str(longitude)
+        ob.horizon = '-6'        #civil dusk/dawn is -6 degrees
+        m = ephem.Sun()
+        m.compute(ob)
     
-    #Phases of the moon
-    moon = ephem.Moon()
-    moon.compute(ob)
-    print(moon.moon_phase)
-    print(moon_yesterday.moon_phase)
-    stage_of_moon = moon_phase(moon.moon_phase, moon_yesterday.moon_phase)
-    print(stage_of_moon)
+        #observer to compare for waxing/waning
+        ob2 = ephem.Observer()
+        ob2.lat = str(latitude)
+        ob2.lon = str(longitude)
+        yesterdays_date = str(date.today() - timedelta(1))      #yesterdays date
+        yesterdays_date = yesterdays_date[:4] + '/' + yesterdays_date[5:7] + '/' + yesterdays_date[8:]
+        ob2.date = yesterdays_date
+        ob2.horizon = '-6'      
+        moon_yesterday = ephem.Moon()
+        moon_yesterday.compute(ob2)
     
-    twitter.statuses.update(status = 'In the city of {} the civil sunrise will be at {} and the civil sunset will be at {} today. The moon phase today is {}.'.format(
-                                                                                         city,
-                                                                                         local_time(time_zone, (ob.next_rising(m))), 
-                                                                                         local_time(time_zone, (ob.next_setting(m))),
-                                                                                         stage_of_moon))
+        #Phases of the moon
+        moon = ephem.Moon()
+        moon.compute(ob)
+        stage_of_moon = moon_phase(moon.moon_phase, moon_yesterday.moon_phase)
+    
+        twitter.statuses.update(status = 'In the city of {} the sunrise will be at {} and the sunset will be at {} today. The moon phase today is {}.'.format(
+                                                                                             city,
+                                                                                             local_time(time_zone, (ob.next_rising(m))), 
+                                                                                             local_time(time_zone, (ob.next_setting(m))),
+                                                                                             stage_of_moon))
+        
+        time.sleep(86400)       #sleep for 24 hours
+    
     
 if __name__ == '__main__':
     main()
